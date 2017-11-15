@@ -80,6 +80,8 @@ struct LearnerTrainParam : public dmlc::Parameter<LearnerTrainParam> {
   std::string test_flag;
   // maximum buffered row value
   float prob_buffer_row;
+  // Momentum coefficent
+  float momentum;
   // maximum row per batch.
   size_t max_row_perbatch;
   // number of threads to use if OpenMP is enabled
@@ -119,6 +121,10 @@ struct LearnerTrainParam : public dmlc::Parameter<LearnerTrainParam> {
         .set_default(1.0f)
         .set_range(0.0f, 1.0f)
         .describe("Maximum buffered row portion");
+    DMLC_DECLARE_FIELD(momentum)
+        .set_default(0.0f)
+        .set_range(0.0f, 1.0f)
+        .describe("Momentum coefficent");
     DMLC_DECLARE_FIELD(max_row_perbatch)
         .set_default(std::numeric_limits<size_t>::max())
         .describe("maximum row per batch.");
@@ -374,8 +380,23 @@ class LearnerImpl : public Learner {
     monitor.Start("GetGradient");
     obj_->GetGradient(preds_, train->info(), iter, &gpair_);
     monitor.Stop("GetGradient");
+    ApplyMomentum();
     gbm_->DoBoost(train, &gpair_, obj_.get());
     monitor.Stop("UpdateOneIter");
+  }
+
+  void ApplyMomentum()
+  {
+    if(tparam.momentum == 0.0f){
+      return;
+    }
+    if(!previous_gpair_.empty()){
+      //apply momentum
+      for(size_t i = 0 ; i < gpair_.size() ; i++){
+        gpair_[i] = gpair_[i] + bst_gpair(previous_gpair_[i].GetGrad() * tparam.momentum, gpair_[i].GetHess());
+      }
+    }
+    previous_gpair_ = gpair_;
   }
 
   void BoostOneIter(int iter, DMatrix* train,
@@ -572,6 +593,8 @@ class LearnerImpl : public Learner {
   std::vector<bst_float> preds_;
   // gradient pairs
   std::vector<bst_gpair> gpair_;
+  // previous gradient pairs
+  std::vector<bst_gpair> previous_gpair_;
 
  private:
   /*! \brief random number transformation seed. */
