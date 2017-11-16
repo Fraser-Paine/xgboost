@@ -393,7 +393,7 @@ class LearnerImpl : public Learner {
     if(!previous_gpair_.empty()){
       //apply momentum
       for(size_t i = 0 ; i < gpair_.size() ; i++){
-        gpair_[i] = gpair_[i] + bst_gpair(previous_gpair_[i].GetGrad() * tparam.momentum, gpair_[i].GetHess());
+        gpair_[i] = gpair_[i] + bst_gpair(previous_gpair_[i].GetGrad() * tparam.momentum, 0.0f);
       }
     }
     previous_gpair_ = gpair_;
